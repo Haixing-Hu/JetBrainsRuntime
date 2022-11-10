@@ -526,6 +526,7 @@ public class WLComponentPeer implements ComponentPeer {
     public void dispose() {
         performLocked(() -> {
             WLToolkit.unregisterWLSurface(getWLSurface(nativePtr));
+            surfaceData.assignSurface(0);
             nativeDisposeFrame(nativePtr);
             nativePtr = 0;
         });
