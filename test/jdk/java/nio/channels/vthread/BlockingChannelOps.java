@@ -194,21 +194,26 @@ public class BlockingChannelOps {
     @Test
     public void testSocketChannelWriteAsyncClose() throws Exception {
         VThreadRunner.run(() -> {
-            try (var connection = new Connection()) {
-                SocketChannel sc = connection.channel1();
-                runAfterParkedAsync(sc::close);
-                try {
-                    ByteBuffer bb = ByteBuffer.allocate(100*1024);
-                    for (;;) {
-                        int n = sc.write(bb);
-                        assertTrue(n > 0);
-                        bb.clear();
+            boolean need_to_be_repeated = true;
+            while (need_to_be_repeated) {
+                try (var connection = new Connection()) {
+                    SocketChannel sc = connection.channel1();
+
+                    // close sc when current thread blocks in write
+                    runAfterParkedAsync(sc::close);
+                    try {
+                        ByteBuffer bb = ByteBuffer.allocate(100*1024);
+                        for (;;) {
+                            int n = sc.write(bb);
+                            assertTrue(n > 0);
+                            bb.clear();
+                        }
+                    } catch (AsynchronousCloseException expected) {
+                        // closed when blocked in write
+                        need_to_be_repeated = false;
+                    } catch (ClosedChannelException e) {
+                        // closed when not blocked in write, need to need_to_be_repeated test
                     }
-                } catch (AsynchronousCloseException e) {
-                    // expected
-                } catch (ClosedChannelException e) {
-                    // on macOS the write loop may block more than once
-                    if (!Platform.isOSX()) throw e;
                 }
             }
         });
